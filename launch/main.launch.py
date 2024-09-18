@@ -29,6 +29,9 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'pen_detection.launch.py')),
         launch_arguments={'depth_scale': LaunchConfiguration('depth_scale')}.items()
     )
+    aruco_ros_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'aruco_ros.launch.py')),
+    )
     
     rviz_config_file = os.path.join(
         get_package_share_directory('pen_detection'),
@@ -42,6 +45,7 @@ def generate_launch_description():
         
         d435i_launch,
         pen_detection_node_launch,
+        aruco_ros_launch,
         
         Node(
         package='rviz2',

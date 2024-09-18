@@ -168,6 +168,7 @@ class PenDetection(Node):
         t.transform.translation.x = x
         t.transform.translation.y = y
         t.transform.translation.z = z
+        # In this project we dont need the rotation
         t.transform.rotation.x = 0.0
         t.transform.rotation.y = 0.0
         t.transform.rotation.z = 0.0
