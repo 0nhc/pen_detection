@@ -24,11 +24,11 @@ class PenDetection(Node):
         
         self.declare_parameter('timer_frequency', 10.0) # hz
         self.declare_parameter('depth_scale', 0.001)
-        self.declare_parameter('lower_hue', 110)
+        self.declare_parameter('lower_hue', 120)
         self.declare_parameter('upper_hue', 150)
-        self.declare_parameter('lower_saturation', 150)
+        self.declare_parameter('lower_saturation', 80)
         self.declare_parameter('upper_saturation', 255)
-        self.declare_parameter('lower_value', 150)
+        self.declare_parameter('lower_value', 80)
         self.declare_parameter('upper_value', 255)
         self.declare_parameter('m00_threshold', 50000) # num of pixels filtered as PURPLE
         
