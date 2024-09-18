@@ -32,6 +32,9 @@ def generate_launch_description():
     aruco_ros_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'aruco_ros.launch.py')),
     )
+    static_tf_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'static_tf.launch.py')),
+    )
     
     rviz_config_file = os.path.join(
         get_package_share_directory('pen_detection'),
