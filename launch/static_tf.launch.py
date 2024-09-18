@@ -12,6 +12,6 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_tf_pub',
-            arguments=['-0.15', '0', '0', '0', '0', '0', 'aruco_marker_frame', 'px100/base_link']
+            arguments=['-0.13', '0', '0', '0', '0', '0', 'aruco_marker_frame', 'px100/base_link']
         )
     ])

@@ -24,7 +24,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'pen_detection_node = pen_detection.pen_detection_node:main'
+            'pen_detection_node = pen_detection.pen_detection_node:main',
+            'calc_grasping_node = pen_detection.calc_grasping_node:main',
+            'px100_grasping_node = pen_detection.px100_grasping_node:main'
         ],
     },
 )

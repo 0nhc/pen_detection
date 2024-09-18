@@ -35,6 +35,9 @@ def generate_launch_description():
     static_tf_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'static_tf.launch.py')),
     )
+    calc_grasping_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pen_detection_package_launch_dir, 'calc_grasping_node.launch.py')),
+    )
     
     rviz_config_file = os.path.join(
         get_package_share_directory('pen_detection'),
@@ -49,6 +52,8 @@ def generate_launch_description():
         d435i_launch,
         pen_detection_node_launch,
         aruco_ros_launch,
+        static_tf_launch,
+        calc_grasping_node_launch,
         
         Node(
         package='rviz2',

@@ -5,6 +5,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TransformStamped
 from rcl_interfaces.msg import SetParametersResult
 import tf2_ros
+from tf2_ros import TransformListener, Buffer
 
 from cv_bridge import CvBridge
 import cv2
@@ -68,6 +69,8 @@ class PenDetection(Node):
         self._image_publisher = self.create_publisher(Image, '/pen_detection/hsv_result', 10)
         
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+        self._tf_buffer = Buffer()
+        self._tf_listener = TransformListener(self._tf_buffer, self)
         
         self._main_loop_timer = self.create_timer(1.0/self._timer_frequency, self._main_loop_timer_callback)
         
@@ -77,40 +80,60 @@ class PenDetection(Node):
         
     def _main_loop_timer_callback(self):
         if(self._rgb_image_received and self._depth_image_received and self._camera_info_received):
-            depth_image = self._depth_image
-            rgb_image = self._rgb_image
+            cam2aruco_received = False
+            try:
+                parent_frame = 'camera_color_optical_frame'
+                child_frame = 'aruco_marker_frame'
+                now = rclpy.time.Time()
+                cam2aruco_rot = self._tf_buffer.lookup_transform(
+                    parent_frame, child_frame, now
+                ).transform.rotation
+                cam2aruco_received = True
+            except Exception as e:
+                # self.get_logger().warn(f"Could not transform {from_frame} to {to_frame}: {str(e)}")
+                pass
             
-            hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
-            lower_purple = np.array([self._lower_hue, self._lower_saturation, self._lower_value])  # Lower bound for blue color in HSV
-            upper_purple = np.array([self._upper_hue, self._upper_saturation, self._upper_value])
-            mask = cv2.inRange(hsv_image, lower_purple, upper_purple) // 255 # Convert from 0/255 to 0/1
-            result = cv2.bitwise_and(rgb_image, rgb_image, mask=mask)            
-            masked_depth = depth_image * mask 
-            
-            """
-            I asked ChatGPT about how to compute the center position efficiently
-            M["m00"] is the sum of pixels that are not zero
-            M["m10"] is the sum of every M["m00"] pixel's x coordinate
-            M["m01"] is the sum of every M["m00"] pixel's y coordinate
-            """
-            # Find contours or the center of the mask using moments
-            M = cv2.moments(masked_depth)
+            if(cam2aruco_received):
+                depth_image = self._depth_image
+                rgb_image = self._rgb_image
+                
+                hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
+                lower_purple = np.array([self._lower_hue, self._lower_saturation, self._lower_value])  # Lower bound for blue color in HSV
+                upper_purple = np.array([self._upper_hue, self._upper_saturation, self._upper_value])
+                mask = cv2.inRange(hsv_image, lower_purple, upper_purple) // 255 # Convert from 0/255 to 0/1
+                result = cv2.bitwise_and(rgb_image, rgb_image, mask=mask)            
+                masked_depth = depth_image * mask 
+                
+                """
+                I asked ChatGPT about how to compute the center position efficiently
+                M["m00"] is the sum of pixels that are not zero
+                M["m10"] is the sum of every M["m00"] pixel's x coordinate
+                M["m01"] is the sum of every M["m00"] pixel's y coordinate
+                """
+                # Find contours or the center of the mask using moments
+                M = cv2.moments(masked_depth)
 
-            # Calculate the centroid (center) if moments are valid
-            if M["m00"] >= self._m00_threshold:
-                cX = int(M["m10"] / M["m00"])  # X coordinate of the center
-                cY = int(M["m01"] / M["m00"])  # Y coordinate of the center
-                # Draw a circle (dot) at the center of the mask
-                cv2.circle(result, (cX, cY), 17, (0, 0, 255), -1)
-                
-                # Get the center point's 3D position under the camera depth frame
-                pz = np.mean(masked_depth[masked_depth>0]) * self._depth_scale
-                px = (cX - self._camera_intrinsic_matrix[0,2]) * pz / self._camera_intrinsic_matrix[0,0]
-                py = (cY - self._camera_intrinsic_matrix[1,2]) * pz / self._camera_intrinsic_matrix[1,1]
-                self._publish_tf(px,py,pz, "camera_depth_optical_frame", "pen_frame")
-                
-            result_msg = self.bridge.cv2_to_imgmsg(result, "bgr8")
-            self._image_publisher.publish(result_msg)            
+                # Calculate the centroid (center) if moments are valid
+                if M["m00"] >= self._m00_threshold:
+                    cX = int(M["m10"] / M["m00"])  # X coordinate of the center
+                    cY = int(M["m01"] / M["m00"])  # Y coordinate of the center
+                    # Draw a circle (dot) at the center of the mask
+                    cv2.circle(result, (cX, cY), 17, (0, 0, 255), -1)
+                    
+                    # Get the center point's 3D position under the camera depth frame
+                    pz = np.mean(masked_depth[masked_depth>0]) * self._depth_scale
+                    px = (cX - self._camera_intrinsic_matrix[0,2]) * pz / self._camera_intrinsic_matrix[0,0]
+                    py = (cY - self._camera_intrinsic_matrix[1,2]) * pz / self._camera_intrinsic_matrix[1,1]
+                    self._publish_tf(px,py,pz, 
+                                     cam2aruco_rot.x, 
+                                     cam2aruco_rot.y, 
+                                     cam2aruco_rot.z, 
+                                     cam2aruco_rot.w, 
+                                     "camera_color_optical_frame", 
+                                     "pen_frame")
+                    
+                result_msg = self.bridge.cv2_to_imgmsg(result, "bgr8")
+                self._image_publisher.publish(result_msg)            
             
         
     def _rgb_callback(self, msg):
@@ -159,20 +182,19 @@ class PenDetection(Node):
         return SetParametersResult(successful=True)
     
     
-    def _publish_tf(self, x, y, z, parent_frame, child_frame):
+    def _publish_tf(self, px, py, pz, ox, oy, oz, ow, parent_frame, child_frame):
         current_time = self.get_clock().now().to_msg()
         t = TransformStamped()
         t.header.stamp = current_time
         t.header.frame_id = parent_frame
         t.child_frame_id = child_frame
-        t.transform.translation.x = x
-        t.transform.translation.y = y
-        t.transform.translation.z = z
-        # In this project we dont need the rotation
-        t.transform.rotation.x = 0.0
-        t.transform.rotation.y = 0.0
-        t.transform.rotation.z = 0.0
-        t.transform.rotation.w = 1.0
+        t.transform.translation.x = px
+        t.transform.translation.y = py
+        t.transform.translation.z = pz
+        t.transform.rotation.x = ox
+        t.transform.rotation.y = oy
+        t.transform.rotation.z = oz
+        t.transform.rotation.w = ow
         self.tf_broadcaster.sendTransform(t)
         
     
