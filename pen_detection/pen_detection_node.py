@@ -89,6 +89,9 @@ class PenDetection(Node):
             
             """
             I asked ChatGPT about how to compute the center position efficiently
+            M["m00"] is the sum of pixels that are not zero
+            M["m10"] is the sum of every M["m00"] pixel's x coordinate
+            M["m01"] is the sum of every M["m00"] pixel's y coordinate
             """
             # Find contours or the center of the mask using moments
             M = cv2.moments(masked_depth)
