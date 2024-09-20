@@ -100,9 +100,12 @@ class PenDetection(Node):
                 hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
                 lower_purple = np.array([self._lower_hue, self._lower_saturation, self._lower_value])  # Lower bound for blue color in HSV
                 upper_purple = np.array([self._upper_hue, self._upper_saturation, self._upper_value])
-                mask = cv2.inRange(hsv_image, lower_purple, upper_purple) // 255 # Convert from 0/255 to 0/1
+                color_mask = cv2.inRange(hsv_image, lower_purple, upper_purple) // 255 # Convert from 0/255 to 0/1
+                color_mask = (color_mask > 0.5).astype(np.uint8)
+                depth_mask = (depth_image < 5000).astype(np.uint8)
+                mask = color_mask & depth_mask
                 result = cv2.bitwise_and(rgb_image, rgb_image, mask=mask)            
-                masked_depth = depth_image * mask 
+                masked_depth = depth_image * mask
                 
                 """
                 I asked ChatGPT about how to compute the center position efficiently

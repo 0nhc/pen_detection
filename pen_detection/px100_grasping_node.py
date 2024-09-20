@@ -11,6 +11,7 @@ import tf_transformations
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
+import time
 from interbotix_xs_modules.xs_robot.arm import InterbotixManipulatorXS
 from interbotix_common_modules.common_robot.robot import robot_shutdown, robot_startup
 
@@ -35,28 +36,37 @@ class PenDetection(Node):
         self._robot = InterbotixManipulatorXS("px100", "arm", "gripper")
         robot_startup()
         self._robot.arm.go_to_sleep_pose()
-        self._robot.gripper.release()
+        self._robot.gripper.release()        
+        
+        self._init_time_secs = 2.0
+        self._init_iterations = self._init_time_secs*self._timer_frequency
+        self._init_counter = 0
         
         # self._main()
         
     
     def _update_grasping_pose_timer_callback(self):
-        try:
-            input()
-            parent_frame = 'px100/base_link'
-            child_frame = 'grasping_frame'
-            now = rclpy.time.Time()
-            self._grasping_pose = self._tf_buffer.lookup_transform(
-                parent_frame, child_frame, now
-            )
-            self._grasping_pose_received = True
-            self._robot.arm.set_ee_pose_matrix(self._transform_to_matrix(self._grasping_pose))
-            self._robot.gripper.grasp()
-            self._robot.arm.go_to_sleep_pose()
-            self._robot.gripper.release()
-        except Exception as e:
-            self.get_logger().warn(f"Could not transform {parent_frame} to {child_frame}: {str(e)}")
-            # pass  
+        if(self._init_counter == self._init_iterations):
+            try:
+                # input()
+                parent_frame = 'px100/base_link'
+                child_frame = 'grasping_frame'
+                now = rclpy.time.Time()
+                self._grasping_pose = self._tf_buffer.lookup_transform(
+                    parent_frame, child_frame, now
+                )
+                self._grasping_pose_received = True
+                self._robot.arm.set_ee_pose_matrix(self._transform_to_matrix(self._grasping_pose))
+                self._robot.gripper.set_pressure(1.0)
+                self._robot.gripper.grasp(3.0)
+                self._robot.arm.go_to_sleep_pose()
+                time.sleep(1.0)
+                self._robot.gripper.release()
+                exit()
+            except Exception as e:
+                self.get_logger().warn(f"Could not transform {parent_frame} to {child_frame}: {str(e)}")
+        else:
+            self._init_counter += 1
         
     # def _main_loop_timer_callback(self):
     #     pass
@@ -66,12 +76,12 @@ class PenDetection(Node):
         
         
     def _main(self):
-        while(self._grasping_pose_received != True):
-            self.get_logger().warn(f"not receiving transfrom")
-        else:
-            self._robot.arm.set_ee_pose_matrix(self._transform_to_matrix(self._grasping_pose))
-            self._robot.gripper.grasp()
-            self._robot.arm.go_to_sleep_pose()
+        # while(self._grasping_pose_received != True):
+        #     self.get_logger().warn(f"not receiving transfrom")
+        # else:
+        self._robot.arm.set_ee_pose_matrix(self._transform_to_matrix(self._grasping_pose))
+        self._robot.gripper.grasp()
+        self._robot.arm.go_to_sleep_pose()
             
     def _transform_to_matrix(self, transform_stamped):
         translation = transform_stamped.transform.translation

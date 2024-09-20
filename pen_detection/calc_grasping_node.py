@@ -79,10 +79,13 @@ class PX100Node(Node):
             
             x = arm2pen[0,3]
             y = arm2pen[1,3]
-            z = arm2pen[2,3]
+            z = arm2pen[2,3] + 0.05
             roll = 0
             pitch = 0
             yaw = np.arctan2(y, x)
+            offset = 0.02
+            x = x - offset
+            y = y - np.tan(yaw)*offset
             quaternion = R.from_euler('xyz', [roll, pitch, yaw]).as_quat()
             
             grasping_transform = self._publish_tf(float(x), float(y), float(z), 
